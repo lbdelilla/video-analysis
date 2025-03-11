@@ -23,15 +23,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt       
       - name: Set environment variables
-        run: |
-          echo "NOTION_API_KEY=${{ secrets.NOTION_API_KEY }}" >> $GITHUB_ENV
-          echo "NOTION_DATABASE_ID=${{ secrets.NOTION_DATABASE_ID }}" >> $GITHUB_ENV
-          echo "NOTION_URL=${{ secrets.NOTION_URL }}" >> $GITHUB_ENV
-          echo "NOTION_VERSION=${{ secrets.NOTION_VERSION }}" >> $GITHUB_ENV
-          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
-          echo "OPENAI_API_ORGANIZATION=${{ secrets.OPENAI_API_ORGANIZATION }}" >> $GITHUB_ENV
-          echo "OPENAI_API_PROJECT=${{ secrets.OPENAI_API_PROJECT }}" >> $GITHUB_ENV
-      - name: Run analysis script        
+        env: 
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          NOTION_URL: ${{ secrets.NOTION_URL }}
+          NOTION_VERSION: ${{ secrets.NOTION_VERSION }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_ORGANIZATION: ${{ secrets.OPENAI_API_ORGANIZATION }}
+          OPENAI_API_PROJECT: ${{ secrets.OPENAI_API_PROJECT }}  
         run:  |
           Xvfb :99 -screen 0 1920x1080x24 & export DISPLAY=:99
           python app.py
