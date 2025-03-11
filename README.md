@@ -31,7 +31,8 @@ OPENAI_API_ORGANIZATION =tu_clave_aqui
 Ejecuta el script con:
 
 ```bash
-python index.py
+python index.py 
+
 ```
 
 El script analizará un video de YouTube basado en su ID y mostrará los resultados en la consola.
