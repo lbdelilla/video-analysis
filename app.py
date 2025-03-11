@@ -27,7 +27,7 @@ def get_transcription(video_id):
         if not re.match(r'^[a-zA-Z0-9_-]{11}$', video_id):
             raise ValueError("❌ El ID del video no tiene un formato válido.")
         
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'], cookies='/cookies.txt')
         text = " ".join([t['text'] for t in transcript])
         return text
     
