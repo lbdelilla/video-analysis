@@ -29,5 +29,5 @@ textstat==0.7.5
 tqdm==4.67.1
 typing_extensions==4.12.2
 urllib3==2.3.0
-youtube-transcript-api==0.6.3
+youtube-transcript-api==1.0.1
 zipp==3.21.0
