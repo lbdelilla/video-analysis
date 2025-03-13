@@ -1,7 +1,7 @@
 import re
 import textstat
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api.proxies import GenericProxyConfig
+from youtube_transcript_api.proxies import WebshareProxyConfig
 from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
 from openai import OpenAI, APIError
 import requests
@@ -16,17 +16,27 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 # Configuración del cliente de Notion
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 DATABASE_ID = os.getenv("NOTION_DATABASE_ID") 
 NOTION_URL = os.getenv("NOTION_URL")
 NOTION_V = os.getenv("NOTION_VERSION") # Asegúrate de agregar esto a tu .env
 
-proxy_url = os.getenv("PROXY_URL")
-if not proxy_url:
-    raise ValueError("❌ No se encontró la variable de entorno PROXY_URL.")
-proxy_config = GenericProxyConfig(proxy_url=proxy_url)
-api = YouTubeTranscriptApi(proxy_config=proxy_config)
+# Configuración de la API de YouTube con WebshareProxyConfig
+proxy_username = os.getenv("PROXY_USERNAME")
+proxy_password = os.getenv("PROXY_PASSWORD")
+
+if not proxy_username or not proxy_password:
+    raise ValueError("❌ Faltan PROXY_USERNAME o PROXY_PASSWORD en las variables de entorno.")
+
+api = YouTubeTranscriptApi(
+    proxy_config=WebshareProxyConfig(
+        proxy_username=proxy_username,
+        proxy_password=proxy_password,
+        proxy_port=80
+    )
+)
 
 def get_transcription(video_id):
     try:
@@ -43,7 +53,6 @@ def get_transcription(video_id):
         raise RuntimeError("❌ Las transcripciones están deshabilitadas para este video.")
     except Exception as e:
         raise RuntimeError(f"❌ Error al obtener la transcripción: {e}")
-    
 
 def analyze_clarity(text):
     try:
