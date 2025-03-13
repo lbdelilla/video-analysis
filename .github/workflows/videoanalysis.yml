@@ -24,6 +24,7 @@ jobs:
           pip install -r requirements.txt       
       - name: Set environment variables
         env: 
+          PROXY_URL: ${{ secrets.PROXY_URL }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
           NOTION_URL: ${{ secrets.NOTION_URL }}
