@@ -1,7 +1,8 @@
 import re
 import textstat
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import NoTranscriptFound 
+from youtube_transcript_api.proxies import GenericProxyConfig
+from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
 from openai import OpenAI, APIError
 import requests
 import nltk
@@ -21,18 +22,27 @@ DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
 NOTION_URL = os.getenv("NOTION_URL")
 NOTION_V = os.getenv("NOTION_VERSION") # Asegúrate de agregar esto a tu .env
 
+proxy_url = os.getenv("PROXY_URL")
+if not proxy_url:
+    raise ValueError("❌ No se encontró la variable de entorno PROXY_URL.")
+proxy_config = GenericProxyConfig(proxy_url=proxy_url)
+api = YouTubeTranscriptApi(proxy_config=proxy_config)
 
 def get_transcription(video_id):
     try:
         if not re.match(r'^[a-zA-Z0-9_-]{11}$', video_id):
             raise ValueError("❌ El ID del video no tiene un formato válido.")
         
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'], cookies='/cookies.txt')
+        transcript = api.get_transcript(video_id, languages=['es', 'en'])
         text = " ".join([t['text'] for t in transcript])
         return text
     
     except NoTranscriptFound:
         raise RuntimeError("❌ No se encontró una transcripción para este video.")
+    except TranscriptsDisabled:
+        raise RuntimeError("❌ Las transcripciones están deshabilitadas para este video.")
+    except Exception as e:
+        raise RuntimeError(f"❌ Error al obtener la transcripción: {e}")
     
 
 def analyze_clarity(text):
@@ -199,7 +209,8 @@ def process_previous_week_videos():
     # Procesar cada elemento encontrado
 def process_videos():
     notion_data = process_previous_week_videos()
-    if not notion_data:
+    if not notion_data or "results" not in notion_data:
+        print("⚠️ No se encontraron datos válidos de Notion para procesar.")
         return
 
     for page in notion_data["results"]:
@@ -230,7 +241,7 @@ def add_comment_to_notion_page(page_id, analysis):
     headers = {
         "Authorization": f"Bearer {NOTION_API_KEY}",
         "Content-Type": "application/json",
-        "Notion-Version": "2022-06-28"
+        "Notion-Version": NOTION_V
     }
 
     if not analysis:
@@ -279,7 +290,7 @@ def update_notion_page(page_id, clarity_metrics, ai_analysis, severity):
     headers = {
         "Authorization": f"Bearer {NOTION_API_KEY}",
         "Content-Type": "application/json",
-        "Notion-Version": "2022-06-28"
+        "Notion-Version": NOTION_V
     }
 
     data = {
