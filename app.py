@@ -1,7 +1,6 @@
 import re
 import textstat
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api.proxies import WebshareProxyConfig
 from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
 from openai import OpenAI, APIError
 import requests
@@ -21,29 +20,14 @@ load_dotenv()
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 DATABASE_ID = os.getenv("NOTION_DATABASE_ID") 
 NOTION_URL = os.getenv("NOTION_URL")
-NOTION_V = os.getenv("NOTION_VERSION") # Asegúrate de agregar esto a tu .env
-
-# Configuración de la API de YouTube con WebshareProxyConfig
-proxy_username = os.getenv("PROXY_USERNAME")
-proxy_password = os.getenv("PROXY_PASSWORD")
-
-if not proxy_username or not proxy_password:
-    raise ValueError("❌ Faltan PROXY_USERNAME o PROXY_PASSWORD en las variables de entorno.")
-
-api = YouTubeTranscriptApi(
-    proxy_config=WebshareProxyConfig(
-        proxy_username=proxy_username,
-        proxy_password=proxy_password,
-        proxy_port=80
-    )
-)
+NOTION_V = os.getenv("NOTION_VERSION") 
 
 def get_transcription(video_id):
     try:
         if not re.match(r'^[a-zA-Z0-9_-]{11}$', video_id):
             raise ValueError("❌ El ID del video no tiene un formato válido.")
         
-        transcript = api.get_transcript(video_id, languages=['es', 'en'])
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
         text = " ".join([t['text'] for t in transcript])
         return text
     
@@ -148,12 +132,15 @@ def process_previous_week_videos():
 
         # Calcular las fechas de lunes a viernes de la semana anterior
         today = datetime.now()
-        last_monday = today - timedelta(days=today.weekday() + 7)
-        last_friday = last_monday + timedelta(days=4)
+        last_monday = today - timedelta(days=today.weekday() + 7) 
+        last_sunday = last_monday - timedelta(days=1)  
+        next_sunday = last_sunday + timedelta(days=7) 
         
         # Formatear fechas en formato Notion (YYYY-MM-DD)
-        start_date = last_monday.strftime("%Y-%m-%d")
-        end_date = last_friday.strftime("%Y-%m-%d")
+        start_date = last_sunday.strftime("%Y-%m-%d")
+        end_date = next_sunday.strftime("%Y-%m-%d")
+
+        print(f"Procesando videos desde {start_date} hasta {end_date}")
 
         url = f"{NOTION_URL}/{DATABASE_ID}/query"
         headers = {
@@ -177,6 +164,12 @@ def process_previous_week_videos():
                         "date": {
                             "before": end_date
                         }
+                    },
+                    {
+                        "property": "AI Severity Analysis",
+                        "select": {
+                            "is_empty": True  
+                        }
                     }
                 ]
             }
@@ -187,7 +180,7 @@ def process_previous_week_videos():
         if response.status_code == 200:
             try:
                 result = response.json()
-                print(f"✅ Extraidos videos de la semana anterior {result}")
+                print(f"✅ Extraidos videos de la semana anterior")
                 if not result.get("results"):
                     print("⚠️ No se encontraron videos para la semana anterior.")
                 return result

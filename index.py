@@ -1,7 +1,7 @@
 import re
 import textstat
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import NoTranscriptFound 
+from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
 from openai import OpenAI, APIError
 import nltk
 import os
@@ -14,15 +14,27 @@ load_dotenv()
 
 # Función para obtener la transcripción de un video de YouTube
 def get_transcription(video_id):
-    if not re.match(r'^[a-zA-Z0-9_-]{11}$', video_id):
-        raise ValueError("El ID del video no tiene un formato válido.")
-    transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
-    text = " ".join([t['text'] for t in transcript])
+    try:    
+        if not re.match(r'^[a-zA-Z0-9_-]{11}$', video_id):
+            raise ValueError("El ID del video no tiene un formato válido.")
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
+        text = " ".join([t['text'] for t in transcript])
 
-    
-    with open("class_transcript.txt", "w", encoding="utf-8" ) as file:
-        file.write(f""" Transcripción:    {text}""")
-
+        
+        with open("class_transcript.txt", "w", encoding="utf-8" ) as file:
+            file.write(f""" Transcripción:    {text}""")
+    except NoTranscriptFound:
+        raise RuntimeError("❌ No se encontró una transcripción para este video.")
+    except TranscriptsDisabled:
+        raise RuntimeError("❌ Las transcripciones están deshabilitadas para este video.")
+    except Exception as e:
+        # Imprimir más detalles del error
+        print(f"❌ Error al procesar video {video_id}: {e}")
+        # Si es un error de JSON, intentemos capturar la respuesta cruda
+        from youtube_transcript_api._api import YouTubeTranscriptApi as api
+        raw_response = api._fetch_transcript_raw(video_id, languages=['es', 'en'])
+        print(f"Respuesta cruda: {raw_response[:1000]}...")  # Limitar para no saturar
+        raise RuntimeError(f"❌ Error al obtener la transcripción: {e}")
     return text
 
 

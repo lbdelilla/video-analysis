@@ -31,7 +31,8 @@ OPENAI_API_ORGANIZATION =tu_clave_aqui
 Ejecuta el script con:
 
 ```bash
-python index.py 
+python index.py #( 1 video solo)
+python app.py #(Todos los videos de la BDD dentro de los filtros)
 
 ```
 
