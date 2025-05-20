@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+from nltk.tokenize import sent_tokenize
 import re
 import textstat
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -5,44 +7,71 @@ from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisable
 from openai import OpenAI, APIError
 import nltk
 import os
-nltk.download('punkt')  
-nltk.download('punkt_tab')  
-from nltk.tokenize import sent_tokenize
-from dotenv import load_dotenv
+nltk.download('punkt')
+nltk.download('punkt_tab')
 
 load_dotenv()
 
-# Función para obtener la transcripción de un video de YouTube
+
+def get_video_metadata(video_id):
+    try:
+        # Obtener la transcripción formateada
+        transcript = YouTubeTranscriptApi.get_transcript(
+            video_id, languages=['es', 'en'])
+
+        # Calcular la duración total del video
+        duration = transcript[-1]['start'] + transcript[-1]['duration']
+
+        # Convertir a minutos (con decimales)
+        duration_minutes = round(duration / 60, 2)
+
+        return {
+            "formatted_transcript": transcript,
+            "duration_minutes": duration_minutes,
+            "total_segments": len(transcript)
+        }
+    except Exception as e:
+        raise RuntimeError(f"❌ Error al obtener los metadatos del video: {e}")
+
+
 def get_transcription(video_id):
-    try:    
+    try:
         if not re.match(r'^[a-zA-Z0-9_-]{11}$', video_id):
             raise ValueError("El ID del video no tiene un formato válido.")
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['es', 'en'])
-        text = " ".join([t['text'] for t in transcript])
 
-        
-        with open("class_transcript.txt", "w", encoding="utf-8" ) as file:
+        # Obtener metadatos del video
+        video_metadata = get_video_metadata(video_id)
+
+        # Obtener el texto de la transcripción
+        text = " ".join([t['text']
+                        for t in video_metadata['formatted_transcript']])
+
+        with open("class_transcript.txt", "w", encoding="utf-8") as file:
             file.write(f""" Transcripción:    {text}""")
-    except NoTranscriptFound:
-        raise RuntimeError("❌ No se encontró una transcripción para este video.")
-    except TranscriptsDisabled:
-        raise RuntimeError("❌ Las transcripciones están deshabilitadas para este video.")
-    except Exception as e:
-        # Imprimir más detalles del error
-        print(f"❌ Error al procesar video {video_id}: {e}")
-        # Si es un error de JSON, intentemos capturar la respuesta cruda
-        from youtube_transcript_api._api import YouTubeTranscriptApi as api
-        raw_response = api._fetch_transcript_raw(video_id, languages=['es', 'en'])
-        print(f"Respuesta cruda: {raw_response[:1000]}...")  # Limitar para no saturar
-        raise RuntimeError(f"❌ Error al obtener la transcripción: {e}")
-    return text
 
+        return {
+            "text": text,
+            "metadata": video_metadata
+        }
+    except NoTranscriptFound:
+        raise RuntimeError(
+            "❌ No se encontró una transcripción para este video.")
+    except TranscriptsDisabled:
+        raise RuntimeError(
+            "❌ Las transcripciones están deshabilitadas para este video.")
+    except Exception as e:
+        print(f"❌ Error al procesar video {video_id}: {e}")
+        raise RuntimeError(f"❌ Error al obtener la transcripción: {e}")
 
 # Función para analizar claridad y pausas
+
+
 def analyze_clarity(text):
     sentences = sent_tokenize(text)
-    avg_sentence_length = sum(len(s.split()) for s in sentences) / len(sentences)
-    filler_words = len(re.findall(r'\b(um|uh|eh|er|mmm|ah|umm|like|you know)\b', text, re.IGNORECASE))
+    avg_sentence_length = sum(len(s.split())
+                              for s in sentences) / len(sentences)
+    filler_words = len(re.findall(
+        r'\b(um|uh|eh|er|mmm|ah|umm|like|you know)\b', text, re.IGNORECASE))
     readability = textstat.flesch_reading_ease(text)
     interpretation = "Fácil de leer" if readability > 60 else "Difícil de leer" if readability < 30 else "Moderado"
     return {
@@ -53,11 +82,13 @@ def analyze_clarity(text):
     }
 
 # Función para hacer un análisis de IA sobre la calidad
+
+
 def analyze_with_ai(text):
     client = OpenAI(
         api_key=os.getenv("OPENAI_API_KEY"),
-        organization=os.getenv("OPENAI_API_ORGANIZATION"), 
-        project=os.getenv("OPENAI_API_PROJECT")           
+        organization=os.getenv("OPENAI_API_ORGANIZATION"),
+        project=os.getenv("OPENAI_API_PROJECT")
     )
     if not client.api_key:
         raise ValueError("No se encontró la clave API de OpenAI.")
@@ -136,27 +167,32 @@ def analyze_with_ai(text):
     analysis = response.choices[0].message.content
     return analysis + ("\n\n⚠️ Nota: La transcripción fue truncado a 10000 caracteres." if truncated else "")
 
-# ID del video de YouTube
-video_id = "mMObokWnJWA"
+
+# ID del video de YouTube para probar
+video_id = "LA9zp7NgKnI"  # El video que estabas intentando analizar
 
 try:
-    transcript_text = get_transcription(video_id)
-    clarity_metrics = analyze_clarity(transcript_text)
-    ai_analysis = analyze_with_ai(transcript_text)
+    # Obtener transcripción y metadatos
+    transcript_data = get_transcription(video_id)
+    transcript_text = transcript_data["text"]
+    video_metadata = transcript_data["metadata"]
 
-    with open("class_review.txt", "w", encoding="utf-8" ) as file:
-        file.write(f"""
-               📌 Análisis de claridad: {clarity_metrics}
-               🤖 Análisis de IA:    {ai_analysis}""")
-    
-    print("📌 Análisis de claridad:", clarity_metrics)
-    print("🤖 Análisis de IA:", ai_analysis)
-    #print("Transcripción", transcript_text)
-except NoTranscriptFound:  # Cambiar a NoTranscriptFound
+    # Mostrar los metadatos
+    print("\n📊 Metadatos del video:")
+    print(f"📹 Duración: {video_metadata['duration_minutes']} minutos")
+    print(f"📝 Total de segmentos: {video_metadata['total_segments']}")
+
+    # Análisis de claridad
+    clarity_metrics = analyze_clarity(transcript_text)
+    print("\n📌 Análisis de claridad:", clarity_metrics)
+
+    # Análisis de IA
+    ai_analysis = analyze_with_ai(transcript_text)
+    print("\n🤖 Análisis de IA:", ai_analysis)
+
+except NoTranscriptFound:
     print("Error: No se encontró transcripción para este video.")
 except APIError as e:
     print("Error en la API de OpenAI:", e)
 except Exception as e:
     print("Error inesperado:", e)
-
-    
